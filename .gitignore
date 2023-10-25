@@ -1,0 +1,48 @@
+*.class
+*.log
+*.zip
+*.gz
+*.jpeg
+*.jpg
+*.png
+*~
+
+# sbt specific
+.settings/
+.cache/
+.history/
+.lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+.project
+.classpath
+.cache
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+
+# IntelliJ IDEA specific
+**/.idea/
+**/target/
+**/*.iml
+
+# Maven
+target/
+
+# OS generated files
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
