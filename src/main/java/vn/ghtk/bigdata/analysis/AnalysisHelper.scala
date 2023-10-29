@@ -15,11 +15,16 @@ object AnalysisHelper {
         val isAlter = true
         if (isAlter) {
           val expressions = statement.getAlterExpressions.asScala.toList
-          val cols = Seq[QualifiedColType]()
+          var cols = Seq[QualifiedColType]()
           expressions.foreach(expression => {
-            if(expression.getColDataTypeList != null && expression.getColDataTypeList.size() == 1) {
+            if (expression.getColDataTypeList != null && expression.getColDataTypeList.size() == 1) {
               val cdt = expression.getColDataTypeList.get(0)
-              cols :+ QualifiedColType(cdt.getColumnName, cdt.getColDataType.toString, nullable = true, "", Some(""), Some(""))
+              val defaultIndex = cdt.getColumnSpecs.asScala.indexWhere(_.equalsIgnoreCase("DEFAULT"))
+              var defaultValue = "NULL"
+              if (defaultIndex != 1) {
+                defaultValue = cdt.getColumnSpecs.get(defaultIndex + 1)
+              }
+              cols = cols :+ QualifiedColType(cdt.getColumnName, cdt.getColDataType.toString, nullable = true, defaultValue, Some(""), Some(""))
             }
           })
           AddColumns(statement.getTable, cols)
