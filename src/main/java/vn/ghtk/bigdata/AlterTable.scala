@@ -20,12 +20,12 @@ object AlterTable {
       |    ADD COLUMN `cip`    VARCHAR(39) DEFAULT NULl COMMENT 'Client IP' AFTER `frm`,
       |    ADD COLUMN `report_type` tinyint(4) DEFAULT '0' COMMENT '0: bc co ban\n1: bc dinh ky',
       |    ADD COLUMN `created_username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'dunghtk2' COMMENT 'Tên người tạo chỉ số',
-      |    ADD COLUMN `source` TINYINT NOT NULL DEFAULT 0 COMMENT '0: app, 1: web' AFTER `frm`,
+      |    ADD COLUMN `source` DECIMAL(13,4) NOT NULL DEFAULT 0 COMMENT '0: app, 1: web' AFTER `frm`,
       |    ADD link_id BIGINT not null comment 'id bảng web_payment_links' default 0 after user_id
       |""".stripMargin
     val stm = CCJSqlParserUtil.parse(sqlStr)
     val execute = AnalysisHelper.resolveOperatorsUp(stm) match {
-      case stm: AddColumns => AlterTableAddColumnsExecute(stm)
+      case stm: AddColumns => AlterTableAddColumnsExecute(stm, 0L)
       case stm: RenameColumn => AlterTableRenameColumnsExecute()
     }
 

@@ -96,15 +96,15 @@ object SnapshotCDCConfig {
     connection.close()
   }
 
-  def updateLastModified(mysqlUrl: String, username: String, password: String, appName: String, tableName: String, lastCheckpoint: Long): Unit = {
+  def updateLastModified(mysqlUrl: String, username: String, password: String, tableName: String, lastCheckpoint: Long): Unit = {
     val connection = DriverManager.getConnection(mysqlUrl, username, password)
 
     val updateQuery =
       """
         |UPDATE bigdata.snapshot_cdc_config_ingest
         |SET checkpoint_time=%s
-        |WHERE app_name = '%s' and table_name = '%s'
-        |""".stripMargin.format(lastCheckpoint, appName, tableName)
+        |WHERE table_name = '%s' and status = 1
+        |""".stripMargin.format(lastCheckpoint, tableName)
 
     println(updateQuery)
 
@@ -114,8 +114,8 @@ object SnapshotCDCConfig {
     connection.close()
   }
 
-  def getListHdfsFolderPath(url: String, username: String, password: String, jobName: String): List[SnapshotCDCConfig] = {
-    val res: ListBuffer[SnapshotCDCConfig] = new ListBuffer[SnapshotCDCConfig]()
+  def getSnapshotCdcConfig(url: String, username: String, password: String, tableName: String): SnapshotCDCConfig = {
+    var res: SnapshotCDCConfig = null
 
     try {
       val connection = DriverManager.getConnection(url, username, password)
@@ -124,7 +124,7 @@ object SnapshotCDCConfig {
         s"""SELECT topic_name, cdc_base_path, snapshot_base_path, table_path, table_name, table_type, partition_format,
            |`keys`, read_max_partition, sql_parser, checkpoint_field, checkpoint_time, late_arriving_window
            |FROM bigdata.snapshot_cdc_config_ingest
-           |WHERE `app_name` = '$jobName' AND `status` = 1 ORDER BY `order` DESC
+           |WHERE `table_name` = '$tableName' AND `status` = 1
            |""".stripMargin)
       print()
       while (resultSet.next()) {
@@ -142,7 +142,7 @@ object SnapshotCDCConfig {
         val checkpoint_field = resultSet.getString("checkpoint_field")
         val checkpoint_max_modified = resultSet.getLong("checkpoint_time")
 
-        res += SnapshotCDCConfig(topic_name, cdc_path, snapshot_path, table_path, table_name, table_type,
+        res = SnapshotCDCConfig(topic_name, cdc_path, snapshot_path, table_path, table_name, table_type,
           partition_format, keys, read_max_partition, late_arriving_window, sql_parser, checkpoint_field, checkpoint_max_modified)
       }
       statement.close()
@@ -150,7 +150,7 @@ object SnapshotCDCConfig {
     } catch {
       case e: Exception => e.printStackTrace()
     }
-    res.toList
+    res
   }
 
   def autoCreateTable(url: String, username: String, password: String, tableName: String, partitionFormat: String): Unit = {
@@ -164,26 +164,6 @@ object SnapshotCDCConfig {
     stmt.setString(1, tableName)
     stmt.setString(2, partitionFormat)
     stmt.setString(3, "NEW")
-    stmt.execute()
-    stmt.close()
-    connection.close()
-  }
-
-  def updateJobStatus(mysqlUrl: String, username: String, password: String, appName: String, tableName: String, jobStatus: String): Unit = {
-    val connection = DriverManager.getConnection(mysqlUrl, username, password)
-
-    val updateQuery =
-      """
-        |UPDATE bigdata.snapshot_cdc_config_ingest
-        |SET job_status=?
-        |WHERE app_name = ? and table_name = ?
-        |""".stripMargin
-
-    println(updateQuery)
-    val stmt = connection.prepareStatement(updateQuery)
-    stmt.setString(1, jobStatus)
-    stmt.setString(2, appName)
-    stmt.setString(3, tableName)
     stmt.execute()
     stmt.close()
     connection.close()

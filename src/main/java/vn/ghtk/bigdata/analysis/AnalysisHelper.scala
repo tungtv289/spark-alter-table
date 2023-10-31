@@ -9,8 +9,6 @@ object AnalysisHelper {
   def resolveOperatorsUp(statement: Statement): Command = {
     statement match {
       case statement: Alter => {
-        val bigdataTbl = statement.getTable.getFullyQualifiedName.replace("`", "")
-        println(bigdataTbl)
         //        check bigdataTbl is conf  ig alter
         val isAlter = true
         if (isAlter) {
@@ -24,7 +22,7 @@ object AnalysisHelper {
               if (defaultIndex != 1) {
                 defaultValue = cdt.getColumnSpecs.get(defaultIndex + 1)
               }
-              cols = cols :+ QualifiedColType(cdt.getColumnName, cdt.getColDataType.toString, nullable = true, defaultValue, Some(""), Some(""))
+              cols = cols :+ QualifiedColType(cdt.getColumnName, cdt.getColDataType.getDataType, nullable = true, defaultValue, Some(""), Some(""))
             }
           })
           AddColumns(statement.getTable, cols)
