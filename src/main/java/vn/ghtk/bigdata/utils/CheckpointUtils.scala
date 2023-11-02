@@ -91,22 +91,4 @@ object CheckpointUtils {
       connection.close()
     }
   }
-
-  def main(args: Array[String]): Unit = {
-    // test buildFilterCondition
-    val checkpoints = List(
-//      Checkpoint("app1", "topic1", 0, 100),
-//      Checkpoint("app1", "topic1", 1, 200),
-//      Checkpoint("app1", "topic1", 2, 300),
-//      Checkpoint("app1", "topic1", 3, 400),
-//      Checkpoint("app1", "topic1", 4, 500),
-//      Checkpoint("app1", "topic1", 5, 600),
-//      Checkpoint("app1", "topic1", 6, 700),
-//      Checkpoint("app1", "topic1", 7, 800),
-//      Checkpoint("app1", "topic1", 8, 900),
-//      Checkpoint("app1", "topic1", 9, 1000),
-    )
-    val filterCondition = buildFilterCondition(checkpoints)
-    println(filterCondition)
-  }
 }

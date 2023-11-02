@@ -31,23 +31,24 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
     val password = RSAUtils.decrypt(spark.conf.get("spark.ghtk.altertable.jdbc.bigdata.password"), privateKey)
 
     val snapshotCDCConfig = SnapshotCDCConfig.getSnapshotCdcConfig(
-      "jdbcUrl", "username", "password", addColumns.table.getFullyQualifiedName)
+      jdbcUrl, username, password, addColumns.table.getFullyQualifiedName)
 
     try {
-      val tablePathAfterAlter = s"${snapshotCDCConfig.table_path}_alter_table_bk"
-      var table = spark.read.parquet(snapshotCDCConfig.table_path)
+      val tableAfterAddDefaultPath = s"${snapshotCDCConfig.table_path}_alter_tbl_path"
+      var tableAfterAddDefaultDF = spark.read.parquet(snapshotCDCConfig.table_path)
       addColumns.columnsToAdd.foreach(col => {
         if (!col.default.equalsIgnoreCase("NULL")) {
-          table = table.withColumn(col.colName, lit(col.default).cast(col.dataType))
+          tableAfterAddDefaultDF = tableAfterAddDefaultDF.withColumn(col.colName, lit(col.default).cast(col.dataType))
         }
       })
 
-      table.repartition(snapshotCDCConfig.partition_format.split(",").map(item => col(item)): _*)
+      tableAfterAddDefaultDF
+        .repartition(snapshotCDCConfig.partition_format.split(",").map(item => col(item)): _*)
         .write
         .format("parquet")
         .mode(SaveMode.Overwrite)
         .partitionBy(snapshotCDCConfig.partition_format.split(","): _*)
-        .save(tablePathAfterAlter)
+        .save(tableAfterAddDefaultPath)
 
       val checkpointAfterAlter = alterTimestamp - snapshotCDCConfig.late_arriving_window
       val cdcAllChangedFileAfterCheckpoint = getListFileModifiedAfterCheckpoint(snapshotCDCConfig.cdc_path, checkpointAfterAlter, false)
@@ -64,7 +65,8 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
           spark.read
             .option("mergeSchema", "true")
             .option("basePath", snapshotCDCConfig.cdc_path)
-            .parquet(cdcAllChangedFileAfterCheckpoint: _*).createOrReplaceTempView("raw_table_checkpoint")
+            .parquet(cdcAllChangedFileAfterCheckpoint: _*)
+            .createOrReplaceTempView("raw_table_checkpoint")
         }
         spark.sqlContext.cacheTable("raw_table_checkpoint")
 
@@ -93,7 +95,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
 
         if (partitionChanged.nonEmpty) {
           //upsert
-          val tablePathNeedRowNumber = getFilePathFromPartition(tablePathAfterAlter, snapshotCDCConfig.partition_format, partitionChanged)
+          val tablePathNeedRowNumber = getFilePathFromPartition(tableAfterAddDefaultPath, snapshotCDCConfig.partition_format, partitionChanged)
           println("Table folder changed data :" + tablePathNeedRowNumber)
 
           val existedHdfsTablePath = getExistedHdfsFolder(tablePathNeedRowNumber)
@@ -101,7 +103,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
 
           if (existedHdfsTablePath.nonEmpty) {
             val currentData = spark.read
-              .option("basePath", tablePathAfterAlter)
+              .option("basePath", tableAfterAddDefaultPath)
               .parquet(existedHdfsTablePath: _*)
               .withColumn("alter_table_order", lit(1).cast("int"))
             currentData.unionByName(finalData).createOrReplaceTempView("temp_view")
@@ -126,7 +128,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
                |) tb
                |WHERE _external_rn = 1
                 """.stripMargin
-          val dfRs = spark.sql(sqlOnly).drop("_external_rn")
+          val dfRs = spark.sql(sqlOnly).drop("_external_rn").drop("alter_table_order")
 
 
           if (StringUtils.isBlank(snapshotCDCConfig.partition_format)) {
@@ -134,7 +136,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
               .write
               .format("parquet")
               .mode(SaveMode.Overwrite)
-              .save(tablePathAfterAlter)
+              .save(tableAfterAddDefaultPath)
           } else {
             dfRs
               .repartition(snapshotCDCConfig.partition_format.split(",").map(item => col(item)): _*)
@@ -142,7 +144,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
               .format("parquet")
               .mode(SaveMode.Overwrite)
               .partitionBy(snapshotCDCConfig.partition_format.split(","): _*)
-              .save(tablePathAfterAlter)
+              .save(tableAfterAddDefaultPath)
           }
           if (snapshotCDCConfig.checkpoint_max_modified > 0) {
             asyncInvalidateMetadataTable(jdbcUrl, username, password,
@@ -171,18 +173,14 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
       } else {
         logger.info("No file changed from cdc path " + snapshotCDCConfig.cdc_path + " after " + snapshotCDCConfig.checkpoint_max_modified)
       }
+      println(addColumns.genSparkSql)
+      true
     } catch {
       case e: Exception => {
         e.printStackTrace()
+        false
       }
     }
-
-
-    //    tat ca xu ly trong nay
-    val df = spark.read.parquet("/user/hive/warehouse/cdc/ghtk_payment_avro_bigdata.ghtk_payment.cod_order_payment_trans")
-    df.repartition(1000).write.format("parquet").mode("overwrite").partitionBy("data_date_key").save("/user/tungtv84/cod_order_payment_trans")
-    println(addColumns.genSparkSql)
-    true
   }
 }
 

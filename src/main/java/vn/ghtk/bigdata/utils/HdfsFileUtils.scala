@@ -54,7 +54,7 @@ object HdfsFileUtils {
   def checkFolderEmpty(folderPaths: String): Boolean = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
-    if (fs.exists(new Path(folderPaths))){
+    if (fs.exists(new Path(folderPaths))) {
       val isEmpty = fs.listStatus(new Path(folderPaths)).isEmpty
       return isEmpty
     }
@@ -67,6 +67,4 @@ object HdfsFileUtils {
     }
     getExistedHdfsFolder(getPossiblePath(baseFilePath, checkpointHdfsModified))
   }
-
-
 }

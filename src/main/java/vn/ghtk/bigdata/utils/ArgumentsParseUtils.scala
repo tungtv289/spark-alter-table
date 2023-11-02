@@ -1,63 +1,43 @@
 package vn.ghtk.bigdata.utils
 
 object ArgumentsParseUtils {
-  case class ETLArguments(appName: String = "",
-                          keyLocation: String = "",
-                          jdbcUrl: String = "",
-                          username: String = "",
-                          password: String = "",
-                         )
 
-  val etlParser = new scopt.OptionParser[ETLArguments]("Parsing application") {
-    opt[String]("app-name").required()
-      .valueName("")
-      .action((value, arguments) => arguments.copy(appName = value))
+  case class Arguments(ddlStatement: String = "",
+                       alterTimestamp: String = "0",
+                       dbType: String = "")
 
-    opt[String]("key-location")
+  val argParser = new scopt.OptionParser[Arguments]("Parsing application") {
+    opt[String]("ddl-statement")
       .valueName("")
-      .action((value, arguments) => arguments.copy(keyLocation = value))
+      .action((value, arguments) => arguments.copy(ddlStatement = value))
 
-    opt[String]("jdbc-url").required()
+    opt[String]("alter-timestamp").required()
       .valueName("")
-      .action((value, arguments) => arguments.copy(jdbcUrl = value))
+      .action((value, arguments) => arguments.copy(alterTimestamp = value))
 
-    opt[String]('u', "username").required()
+    opt[String]("db-type").required()
       .valueName("")
-      .action((value, arguments) => arguments.copy(username = value))
-
-    opt[String]('p', "password").required()
-      .valueName("")
-      .action((value, arguments) => arguments.copy(password = value))
+      .action((value, arguments) => arguments.copy(dbType = value))
 
   }
 
-  def getETLArguments(args: Array[String]): scala.collection.mutable.Map[String, String] = {
+  def getArguments(args: Array[String]): scala.collection.mutable.Map[String, String] = {
     val arguments: scala.collection.mutable.Map[String, String] = collection.mutable.HashMap.empty[String, String]
 
+    var ddlStatement: String = null
+    var alterTimestamp: String = "0"
+    var dbType: String = null
 
-    var jdbcUrl: String = null
-    var keyLocation: String = null
-    var appName: String = null
-    var username: String = null
-    var password: String = null
-
-
-    etlParser.parse(args, ETLArguments()) match {
+    argParser.parse(args, Arguments()) match {
       case Some(arguments) =>
-        appName = arguments.appName
-        keyLocation = arguments.keyLocation
-        jdbcUrl = arguments.jdbcUrl
-        username = arguments.username
-        password = arguments.password
+        ddlStatement = arguments.ddlStatement
+        alterTimestamp = arguments.alterTimestamp
+        dbType = arguments.dbType
       case None => throw new Exception("Invalid input arguments!!!")
     }
-
-    arguments += ("appName" -> appName)
-    arguments += ("keyLocation" -> keyLocation)
-    arguments += ("jdbcUrl" -> jdbcUrl)
-    arguments += ("username" -> username)
-    arguments += ("password" -> password)
-
+    arguments += ("ddlStatement" -> ddlStatement)
+    arguments += ("alterTimestamp" -> alterTimestamp)
+    arguments += ("dbType" -> dbType)
     arguments
   }
 
