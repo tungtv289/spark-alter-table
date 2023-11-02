@@ -2,22 +2,18 @@ package vn.ghtk.bigdata.utils
 
 object ArgumentsParseUtils {
 
-  case class Arguments(ddlStatement: String = "",
-                       alterTimestamp: String = "0",
-                       dbType: String = "")
-
   val argParser = new scopt.OptionParser[Arguments]("Parsing application") {
     opt[String]("ddl-statement")
       .valueName("")
       .action((value, arguments) => arguments.copy(ddlStatement = value))
 
-    opt[String]("alter-timestamp").required()
+    opt[String]("event-timestamp").required()
       .valueName("")
-      .action((value, arguments) => arguments.copy(alterTimestamp = value))
+      .action((value, arguments) => arguments.copy(eventTimestamp = value))
 
-    opt[String]("db-type").required()
+    opt[String]("jdbc-type").required()
       .valueName("")
-      .action((value, arguments) => arguments.copy(dbType = value))
+      .action((value, arguments) => arguments.copy(jdbcType = value))
 
   }
 
@@ -25,20 +21,24 @@ object ArgumentsParseUtils {
     val arguments: scala.collection.mutable.Map[String, String] = collection.mutable.HashMap.empty[String, String]
 
     var ddlStatement: String = null
-    var alterTimestamp: String = "0"
-    var dbType: String = null
+    var eventTimestamp: String = "0"
+    var jdbcType: String = null
 
     argParser.parse(args, Arguments()) match {
       case Some(arguments) =>
         ddlStatement = arguments.ddlStatement
-        alterTimestamp = arguments.alterTimestamp
-        dbType = arguments.dbType
+        eventTimestamp = arguments.eventTimestamp
+        jdbcType = arguments.jdbcType
       case None => throw new Exception("Invalid input arguments!!!")
     }
     arguments += ("ddlStatement" -> ddlStatement)
-    arguments += ("alterTimestamp" -> alterTimestamp)
-    arguments += ("dbType" -> dbType)
+    arguments += ("eventTimestamp" -> eventTimestamp)
+    arguments += ("jdbcType" -> jdbcType)
     arguments
   }
+
+  case class Arguments(ddlStatement: String = "",
+                       eventTimestamp: String = "0",
+                       jdbcType: String = "")
 
 }

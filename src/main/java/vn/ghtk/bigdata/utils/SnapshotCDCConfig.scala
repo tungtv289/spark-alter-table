@@ -1,7 +1,6 @@
 package vn.ghtk.bigdata.utils
 
 import java.sql.DriverManager
-import scala.collection.mutable.ListBuffer
 
 
 case class SnapshotCDCConfig(
@@ -96,15 +95,15 @@ object SnapshotCDCConfig {
     connection.close()
   }
 
-  def updateLastModified(mysqlUrl: String, username: String, password: String, tableName: String, lastCheckpoint: Long): Unit = {
+  def updateSnapshotCdcConfig(mysqlUrl: String, username: String, password: String, tableName: String, lastCheckpoint: Long, splParser: String): Unit = {
     val connection = DriverManager.getConnection(mysqlUrl, username, password)
 
     val updateQuery =
       """
         |UPDATE bigdata.snapshot_cdc_config_ingest
-        |SET checkpoint_time=%s
+        |SET checkpoint_time=%s, sql_parser=%s
         |WHERE table_name = '%s' and status = 1
-        |""".stripMargin.format(lastCheckpoint, tableName)
+        |""".stripMargin.format(lastCheckpoint, splParser, tableName)
 
     println(updateQuery)
 

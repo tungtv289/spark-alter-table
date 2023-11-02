@@ -4,15 +4,26 @@ import net.sf.jsqlparser.schema.Table
 
 trait AlterTableCommands extends Command {
   def table: Table
+
+  def func: UtilsFunc
 }
 
+trait UtilsFunc
 
-case class AddColumns(table: Table, columnsToAdd: Seq[QualifiedColType]) extends AlterTableCommands {
-  def genSparkSql: String = {
-    val tableFullName = table.getFullyQualifiedName
-    s"ALTER TABLE $tableFullName " + columnsToAdd.map(col => s"ADD COLUMN ${col.colName} ${col.dataType}").mkString(",")
-  }
+trait AddColumnsFunc extends UtilsFunc {
+  def sqlParseNeedAdd(originCols: Seq[QualifiedColType]): String
+
+  def sqlAlterBigdataTable(originCols: Seq[QualifiedColType]): String
+
+  def convertToSparkField(originCols: Seq[QualifiedColType]): Seq[QualifiedColType]
 }
 
-case class RenameColumn(table: Table) extends AlterTableCommands {
+case class AddColumns(table: Table, func: AddColumnsFunc, private val columnsToAdd: Seq[QualifiedColType]) extends AlterTableCommands {
+  def getSparkFieldToAdd: Seq[QualifiedColType] = func.convertToSparkField(columnsToAdd)
+
+  def getSqlAlterBigdataTable: String = func.sqlAlterBigdataTable(columnsToAdd)
+
+  def getSqlParseNeedAdd: String = func.sqlParseNeedAdd(columnsToAdd)
 }
+
+abstract case class RenameColumn(table: Table) extends AlterTableCommands {}

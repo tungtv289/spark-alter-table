@@ -11,18 +11,13 @@ import vn.ghtk.bigdata.utils.Utils.getPrivateKey
 import vn.ghtk.bigdata.utils.{CheckpointUtils, RSAUtils, SnapshotCDCConfig}
 
 trait Execute {
+  protected val logger: Logger = Logger.getLogger(this.getClass)
+
   def run(sparkSession: SparkSession): Boolean
 }
 
 case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: Long) extends Execute {
-  private val logger = Logger.getLogger(this.getClass)
-
   def run(spark: SparkSession): Boolean = {
-    //    get topic
-    //    val dfTblCheckpoint = spark.read.parquet("/user/hive/warehouse/cdc/coordinate_verification_avro_postgres_bigdata.pub.cod_validations")
-    //    dfTblCheckpoint.createOrReplaceTempView("raw_table_checkpoint")
-    //    spark.sql(s"select _partition, min(_offset), min(source.ts_ms) as ext_ts_ms from raw_table_checkpoint where after.station_id is not null or after.type is not null group by _partition order by ext_ts_ms").show(false)
-
     val keyLocation = spark.conf.get("spark.ghtk.altertable.key.location")
     val privateKey = getPrivateKey(keyLocation)
 
@@ -36,7 +31,9 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
     try {
       val tableAfterAddDefaultPath = s"${snapshotCDCConfig.table_path}_alter_tbl_path"
       var tableAfterAddDefaultDF = spark.read.parquet(snapshotCDCConfig.table_path)
-      addColumns.columnsToAdd.foreach(col => {
+      val sqlParserAfterAlter = fixedSqlParser(snapshotCDCConfig.sql_parser, addColumns.getSqlParseNeedAdd)
+
+      addColumns.getSparkFieldToAdd.foreach(col => {
         if (!col.default.equalsIgnoreCase("NULL")) {
           tableAfterAddDefaultDF = tableAfterAddDefaultDF.withColumn(col.colName, lit(col.default).cast(col.dataType))
         }
@@ -70,7 +67,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
         }
         spark.sqlContext.cacheTable("raw_table_checkpoint")
 
-        val filterCondition = addColumns.columnsToAdd.map(col => s"${col.colName} is not null").mkString(" or ")
+        val filterCondition = addColumns.getSparkFieldToAdd.map(col => s"${col.colName} is not null").mkString(" or ")
         val filterData = spark.sql(f"select * from raw_table_checkpoint where $filterCondition")
 
         val maxCheckpointField = spark.sql(f"select max(${snapshotCDCConfig.checkpoint_field}) from raw_table_checkpoint")
@@ -82,7 +79,7 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
           .withColumn("alter_table_order", lit(2).cast("int"))
           .createOrReplaceTempView("reformatedData")
 
-        val finalData = spark.sql(snapshotCDCConfig.sql_parser)
+        val finalData = spark.sql(sqlParserAfterAlter)
         finalData.createOrReplaceTempView("dataFromPartitionChanged")
 
         val partitionChanged = spark
@@ -166,20 +163,30 @@ case class AlterTableAddColumnsExecute(addColumns: AddColumns, alterTimestamp: L
         }
 
 
-        updateLastModified(jdbcUrl, username, password,
-          snapshotCDCConfig.table_name, maxCheckpointField)
+        updateSnapshotCdcConfig(jdbcUrl, username, password,
+          snapshotCDCConfig.table_name, maxCheckpointField, sqlParserAfterAlter)
         CheckpointUtils.updateCheckpoints(jdbcUrl, username, password,
           snapshotCDCConfig.table_name, snapshotCDCConfig.topic_name, maxOffsetEachPartition.collect())
       } else {
         logger.info("No file changed from cdc path " + snapshotCDCConfig.cdc_path + " after " + snapshotCDCConfig.checkpoint_max_modified)
       }
-      println(addColumns.genSparkSql)
+      //      println(addColumns.genSparkSql)
       true
     } catch {
       case e: Exception => {
         e.printStackTrace()
         false
       }
+    }
+  }
+
+  def fixedSqlParser(old: String, needAdd: String): String = {
+    val index = old.lastIndexOf("FROM reformatedData")
+    if (index != -1) {
+      val newString = s"${old.substring(0, index)}, ${needAdd} ${old.substring(index)}"
+      newString
+    } else {
+      throw new Exception("Error format")
     }
   }
 }
